@@ -51,10 +51,11 @@ func main() {
 			info := matrix.Matrix[src][dst] // 访问 Matrix 字段
 
 			fmt.Printf(
-				"  -> DCU %-2d | LinkType: %-12s | Weight: %d\n",
+				"  -> DCU %-2d | LinkType: %-12s | Weight: %-2d | RemoteBDF: %s\n", // ===== 【修改】 =====
 				info.DstDvInd,
 				info.LinkType,
 				info.Weight,
+				info.RemotePciID, // ===== 【新增打印字段】 =====
 			)
 		}
 		fmt.Println()
@@ -65,8 +66,14 @@ func main() {
 	// ---- 示例：直接访问特定 DCU 之间的链接信息 ----
 	src, dst := 0, 3
 	linkInfo := matrix.Matrix[src][dst]
-	fmt.Printf("DCU %d -> DCU %d : LinkType=%s, Weight=%d, Hops=%d\n",
-		src, dst, linkInfo.LinkType, linkInfo.Weight, linkInfo.Hops)
+	fmt.Printf(
+		"DCU %d -> DCU %d : LinkType=%s, Weight=%d, Hops=%d, RemoteBDF=%s\n", // ===== 【修改】 =====
+		src, dst,
+		linkInfo.LinkType,
+		linkInfo.Weight,
+		linkInfo.Hops,
+		linkInfo.RemotePciID, // ===== 【新增打印字段】 =====
+	)
 }
 
 func dataToJson(data any) string {

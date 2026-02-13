@@ -876,7 +876,7 @@ func AllDeviceInfos() ([]PhysicalDeviceInfo, error) {
 	return allDevices, nil
 }
 
-// PicBusInfo 获取设备的总线信息
+// PciBusInfo 获取设备的总线信息
 // @Summary 获取设备的总线信息
 // @Description 根据设备索引返回对应的总线信息（BDF格式）
 // @Produce json
@@ -884,8 +884,8 @@ func AllDeviceInfos() ([]PhysicalDeviceInfo, error) {
 // @Success 200 {string} string "返回设备的总线信息"
 // @Failure 400 {object} error "请求参数错误"
 // @Failure 500 {object} error "服务器内部错误"
-// @Router /PicBusInfo [get]
-func PicBusInfo(dvInd int) (picID string, err error) {
+// @Router /PciBusInfo [get]
+func PciBusInfo(dvInd int) (pciID string, err error) {
 	bdfid, err := rsmiDevPciIdGet(dvInd)
 	if err != nil {
 		return "", err
@@ -896,7 +896,7 @@ func PicBusInfo(dvInd int) (picID string, err error) {
 	devID := (bdfid >> 3) & 0x1f
 	function := bdfid & 0x7
 	// Format and return the bus identifier
-	picID = fmt.Sprintf("%04x:%02x:%02x.%x", domain, bus, devID, function)
+	pciID = fmt.Sprintf("%04x:%02x:%02x.%x", domain, bus, devID, function)
 	return
 }
 
@@ -2032,17 +2032,17 @@ func DevPowerProfilePresetsGet(dvInd, sensorInd int) (powerProfileStatus PowerPr
 // @Success 200 {string} string "设备总线ID"
 // @Failure 400 {string} string "失败信息"
 // @Router /GetBus/{device} [get]
-func GetBus(dvInd int) (picId string, err error) {
+func GetBus(dvInd int) (pciId string, err error) {
 
 	bdfid, err := rsmiDevPciIdGet(dvInd)
 	if err != nil {
-		return picId, err
+		return pciId, err
 	}
 	domain := (bdfid >> 32) & 0xffffffff
 	bus := (bdfid >> 8) & 0xff
 	dev := (bdfid >> 3) & 0x1f
 	function := bdfid & 0x7
-	picId = fmt.Sprintf("%04x:%02x:%02x.%x", domain, bus, dev, function)
+	pciId = fmt.Sprintf("%04x:%02x:%02x.%x", domain, bus, dev, function)
 	return
 }
 
@@ -3665,12 +3665,12 @@ func DiscoverInterconnectTopology() (matrix DcuInterconnectMatrix, err error) {
 		for dst := 0; dst < deviceCount; dst++ {
 
 			linkInfo := DcuLinkInfo{
-				SrcDvInd:    src,
-				DstDvInd:    dst,
-				RemoteBdfID: dvIndToBdf[dst],
-				LinkType:    "NONE",
-				Weight:      0,
-				Hops:        0,
+				SrcDvInd: src,
+				DstDvInd: dst,
+				BdfID:    dvIndToBdf[dst],
+				LinkType: "NONE",
+				Weight:   0,
+				Hops:     0,
 			}
 
 			// 自己到自己
@@ -3757,6 +3757,12 @@ func DiscoverInterconnectTopology() (matrix DcuInterconnectMatrix, err error) {
 			}
 
 			matrix.Matrix[src][dst] = linkInfo
+		}
+	}
+	for i := range matrix.Matrix {
+		for j := range matrix.Matrix[i] {
+			matrix.Matrix[i][j].PciID =
+				formatBDFID(matrix.Matrix[i][j].BdfID)
 		}
 	}
 	return matrix, nil

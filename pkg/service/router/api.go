@@ -430,14 +430,14 @@ func AllDeviceInfos(c *gin.Context) {
 // @Failure 400 {object} error "Invalid device ID"
 // @Failure 500 {object} error "Internal Server Error"
 // @Router /picbusinfo/{dvInd} [get]
-func PicBusInfo(c *gin.Context) {
+func PciBusInfo(c *gin.Context) {
 	dvInd, err := strconv.Atoi(c.Param("dvInd"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid device ID"))
 		return
 	}
 
-	busInfo, err := dcgm.PicBusInfo(dvInd)
+	busInfo, err := dcgm.PciBusInfo(dvInd)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse(err.Error()))
 		return
@@ -2845,12 +2845,12 @@ func DiscoverInterconnectTopology(c *gin.Context) {
 		for j := 0; j < matrix.DeviceCount; j++ {
 			link := matrix.Matrix[i][j]
 			deviceMatrix.Matrix[i][j] = DcuLinkInfo{
-				SrcDvInd:    link.SrcDvInd,
-				DstDvInd:    link.DstDvInd,
-				RemoteBdfID: link.RemoteBdfID,
-				LinkType:    link.LinkType,
-				Weight:      link.Weight,
-				Hops:        link.Hops,
+				SrcDvInd: link.SrcDvInd,
+				DstDvInd: link.DstDvInd,
+				PciID:    link.PciID,
+				LinkType: link.LinkType,
+				Weight:   link.Weight,
+				Hops:     link.Hops,
 			}
 		}
 	}

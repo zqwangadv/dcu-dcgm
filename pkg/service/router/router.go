@@ -26,7 +26,7 @@ func InitRouter() *gin.Engine {
 	router.GET("/DeviceInfo/:dvInd", GetDeviceByDvInd)
 	router.GET("/VDeviceByDvInd/:dvInd", VDeviceByDvInd)
 	// 路由
-	router.GET("/PicbusInfo/:dvInd", PicBusInfo)
+	router.GET("/PciBusInfo/:dvInd", PciBusInfo)
 	router.GET("/DFBandwidth/:dvInd", DFBandwidth)
 	// 路由(K100 AI不支持)
 	router.GET("/FanSpeedInfo/:dvInd", FanSpeedInfo)

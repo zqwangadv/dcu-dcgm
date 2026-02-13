@@ -1707,12 +1707,13 @@ var updateIDsMap map[string]string
 
 // DcuLinkInfo 描述两张 DCU 之间的互联关系
 type DcuLinkInfo struct {
-	SrcDvInd    int    // 源 DCU 索引
-	DstDvInd    int    // 目标 DCU 索引
-	RemoteBdfID uint64 // 目标 DCU 的 BDFID
-	LinkType    string // PCIE / XGMI / HYSWITCH / NONE
-	Weight      int    // 链路权重
-	Hops        int    // 跳数（目前为0）
+	SrcDvInd int    // 源 DCU 索引
+	DstDvInd int    // 目标 DCU 索引
+	BdfID    uint64 // 目标 DCU 的 BDFID
+	PciID    string // 目标DCU的pciID
+	LinkType string // PCIE / XGMI / HYSWITCH / NONE
+	Weight   int    // 链路权重
+	Hops     int    // 跳数（目前为0）
 }
 
 // DcuInterconnectMatrix 描述整机 DCU 互联矩阵

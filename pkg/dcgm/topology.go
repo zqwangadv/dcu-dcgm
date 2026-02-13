@@ -192,12 +192,12 @@ func rsmiXhclLinkRemoteBdfidGet(dvInd int, linkID int) (bdfid uint64, err error)
 	bdfid = uint64(cbdfid)
 
 	// 打印返回值（重点）
-	//glog.V(5).Infof(
-	//	"DCU %d XHCL link %d remote bdfid = 0x%x",
-	//	dvInd,
-	//	linkID,
-	//	bdfid,
-	//)
+	glog.V(5).Infof(
+		"✈️✈️✈️DCU %d XHCL link %d remote bdfid :%v",
+		dvInd,
+		linkID,
+		bdfid,
+	)
 
 	//// 拆解 bus:device.function
 	//bus := (bdfid >> 8) & 0xff

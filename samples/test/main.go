@@ -383,38 +383,48 @@ func main() {
 	fmt.Println("==== DCU Interconnect Topology Demo ====")
 
 	// 获取整个系统 DCU 的互联信息
-	matrix, err := dcgm.DiscoverInterconnectTopology()
-	if err != nil {
-		fmt.Printf("DiscoverInterconnectTopology failed: %v\n", err)
-		return
-	}
-	glog.V(5).Infof("DiscoverInterconnectTopology: %v", dataToJson(matrix))
-	// 使用 DeviceCount 或者 len(matrix.Matrix) 获取 DCU 数量
-	dcuCount := matrix.DeviceCount
-	fmt.Printf("Total DCU count: %d\n\n", dcuCount)
-
-	for src := 0; src < dcuCount; src++ {
-		fmt.Printf("From DCU %d:\n", src)
-		for dst := 0; dst < dcuCount; dst++ {
-			info := matrix.Matrix[src][dst] // 访问 Matrix 字段
-
-			fmt.Printf(
-				"  -> DCU %-2d | LinkType: %-12s | Weight: %d\n",
-				info.DstDvInd,
-				info.LinkType,
-				info.Weight,
-			)
-		}
-		fmt.Println()
-	}
+	//matrix, err := dcgm.DiscoverInterconnectTopology()
+	//if err != nil {
+	//	fmt.Printf("DiscoverInterconnectTopology failed: %v\n", err)
+	//	return
+	//}
+	//glog.V(5).Infof("DiscoverInterconnectTopology: %v", dataToJson(matrix))
+	//// 使用 DeviceCount 或者 len(matrix.Matrix) 获取 DCU 数量
+	//dcuCount := matrix.DeviceCount
+	//fmt.Printf("Total DCU count: %d\n\n", dcuCount)
+	//
+	//for src := 0; src < dcuCount; src++ {
+	//	fmt.Printf("From DCU %d:\n", src)
+	//	for dst := 0; dst < dcuCount; dst++ {
+	//		info := matrix.Matrix[src][dst] // 访问 Matrix 字段
+	//
+	//		fmt.Printf(
+	//			"  -> DCU %-2d | LinkType: %-12s | Weight: %d\n",
+	//			info.DstDvInd,
+	//			info.LinkType,
+	//			info.Weight,
+	//		)
+	//	}
+	//	fmt.Println()
+	//}
+	picID, err := dcgm.PicBusInfo(0)
+	glog.V(5).Infof("dvInd: %v ,PicBusInfo: %v", 0, picID)
+	busInfo, err := dcgm.PicBusInfo(1)
+	glog.V(5).Infof("dvInd: %v ,PicBusInfo: %v", 2, busInfo)
+	dcgm.PicBusInfo(2)
+	dcgm.PicBusInfo(3)
+	dcgm.DumpXhclRemoteBdfids(0)
+	dcgm.DumpXhclRemoteBdfids(1)
+	dcgm.DumpXhclRemoteBdfids(2)
+	dcgm.DumpXhclRemoteBdfids(3)
 
 	fmt.Println("==== Demo Finished ====")
 
 	// ---- 示例：直接访问特定 DCU 之间的链接信息 ----
-	src, dst := 0, 3
-	linkInfo := matrix.Matrix[src][dst]
-	fmt.Printf("DCU %d -> DCU %d : LinkType=%s, Weight=%d, Hops=%d\n",
-		src, dst, linkInfo.LinkType, linkInfo.Weight, linkInfo.Hops)
+	//src, dst := 0, 3
+	//linkInfo := matrix.Matrix[src][dst]
+	//fmt.Printf("DCU %d -> DCU %d : LinkType=%s, Weight=%d, Hops=%d\n",
+	//	src, dst, linkInfo.LinkType, linkInfo.Weight, linkInfo.Hops)
 }
 
 func dataToJson(data any) string {

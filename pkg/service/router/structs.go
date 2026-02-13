@@ -2013,9 +2013,9 @@ type DcuLinkInfo struct {
 	// example: 1
 	DstDvInd int `json:"dstDvInd"`
 
-	// RemoteBdfID 目标 DCU 的 BDFID
-	// example: 0x2500
-	RemoteBdfID uint64 `json:"remoteBdfID"`
+	// 目标DCU的pciID
+	// example: 0000:07:00.0
+	PciID string `json:"PciID"`
 
 	// LinkType 链路类型: PCIE / XGMI / HYSWITCH / NONE
 	// example: XGMI
