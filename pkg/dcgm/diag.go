@@ -121,7 +121,7 @@ func diagHardware(level int) (dcuResults []DCUResult, err error) {
 			})
 
 			// picBus Check
-			if picBusInfo, err := PicBusInfo(i); err != nil {
+			if picBusInfo, err := PciBusInfo(i); err != nil {
 				dcuResult.DiagResults = append(dcuResult.DiagResults, DiagResult{
 					Status:       DiagResultFail,
 					TestName:     "picBus Check",
