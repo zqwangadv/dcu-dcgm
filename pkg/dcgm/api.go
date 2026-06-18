@@ -3638,6 +3638,145 @@ func DumpXhclRemoteBdfids(dvInd int) ([]XhclRemoteBdf, error) {
 	return results, nil
 }
 
+// DiscoverInterconnectTopology 枚举整机 DCU 的互联关系，返回 DCU × DCU 的互联矩阵。
+//
+// @Summary 获取整机 DCU 的互联矩阵信息
+// @Description 枚举整机 DCU 互联关系，包括链路类型（PCIe / XGMI / HYSWITCH / NONE）及对应权重。
+//   - 自动获取 DCU 数量
+//   - 构建 DCU × DCU 的互联矩阵
+//   - 判断每一对 DCU 之间的链路类型
+//   - 计算对应的链路权重（PCIe / NUMA / XGMI / HYSWITCH）
+//
+// @Tags Topology
+// @Success 200 {object} DcuInterconnectMatrix "DCU 互联矩阵信息"
+// @Failure 500 {string} string "查询 DCU 互联信息失败"
+func DiscoverInterconnectTopology() (matrix DcuInterconnectMatrix, err error) {
+	deviceCount, err := NumMonitorDevices()
+	if err != nil {
+		return matrix, err
+	}
+
+	matrix.DeviceCount = deviceCount
+	glog.V(5).Infof("DiscoverInterconnectTopology start, deviceCount=%d", deviceCount)
+
+	matrix.Matrix = make([][]DcuLinkInfo, deviceCount)
+	for i := 0; i < deviceCount; i++ {
+		matrix.Matrix[i] = make([]DcuLinkInfo, deviceCount)
+	}
+
+	dvIndToBdf := make(map[int]uint64)
+	for i := 0; i < deviceCount; i++ {
+		bdfid, err := rsmiDevPciIdGet(i)
+		if err != nil {
+			return matrix, err
+		}
+		dvIndToBdf[i] = uint64(bdfid)
+
+		glog.V(5).Infof(
+			"DCU %d BDFID=0x%x",
+			i, dvIndToBdf[i],
+		)
+	}
+
+	for src := 0; src < deviceCount; src++ {
+		for dst := 0; dst < deviceCount; dst++ {
+			linkInfo := DcuLinkInfo{
+				SrcDvInd: src,
+				DstDvInd: dst,
+				BdfID:    dvIndToBdf[dst],
+				LinkType: LinkTypeNONE,
+				Weight:   0,
+				Hops:     0,
+			}
+
+			if src == dst {
+				linkInfo.Weight = -1
+				matrix.Matrix[src][dst] = linkInfo
+				continue
+			}
+
+			linkTypes, err := GetTopoLinkType(src, []int{dst})
+			if err != nil {
+				return matrix, err
+			}
+
+			if len(linkTypes) == 0 {
+				matrix.Matrix[src][dst] = linkInfo
+				continue
+			}
+
+			switch linkTypes[0] {
+			case LinkTypePCIE:
+				linkInfo.LinkType = LinkTypePCIE
+
+				numaInfos, err := ShowNumaTopology([]int{src, dst})
+				if err != nil {
+					return matrix, err
+				}
+
+				if len(numaInfos) == 2 &&
+					numaInfos[0].NumaNode == numaInfos[1].NumaNode {
+					linkInfo.Weight = 1
+				} else {
+					linkInfo.Weight = 0
+				}
+
+				glog.V(5).Infof(
+					"DCU %d -> %d PCIE link, weight=%d",
+					src, dst, linkInfo.Weight,
+				)
+
+			case LinkTypeXGMI:
+				isHyswitch, err := TopoIsHylink(src, dst)
+				if err != nil {
+					return matrix, err
+				}
+
+				if isHyswitch {
+					linkInfo.LinkType = LinkTypeXGMIHyswitch
+					linkInfo.Weight = deviceCount - 1
+
+					glog.V(5).Infof(
+						"DCU %d -> %d HYSWITCH link, weight=%d",
+						src, dst, linkInfo.Weight,
+					)
+				} else {
+					linkInfo.LinkType = LinkTypeXGMI
+
+					xhclLinks, err := DumpXhclRemoteBdfids(src)
+					if err != nil {
+						return matrix, err
+					}
+
+					for _, l := range xhclLinks {
+						if l.BdfID == dvIndToBdf[dst] {
+							linkInfo.Weight++
+						}
+					}
+
+					glog.V(5).Infof(
+						"DCU %d -> %d XGMI link, weight=%d",
+						src, dst, linkInfo.Weight,
+					)
+				}
+
+			default:
+				linkInfo.LinkType = LinkTypeUnknown
+			}
+
+			matrix.Matrix[src][dst] = linkInfo
+		}
+	}
+
+	for i := range matrix.Matrix {
+		for j := range matrix.Matrix[i] {
+			matrix.Matrix[i][j].PciID = formatBDFID(matrix.Matrix[i][j].BdfID)
+		}
+	}
+
+	return matrix, nil
+}
+
 // GetGpuInterconnectInfo 获取指定 GPU 的互联拓扑信息
 //
 // 该函数从单卡视角出发，综合 PCIe / XGMI / Hyswitch 信息，
@@ -3660,6 +3799,7 @@ func GetGpuInterconnectInfo(srcDvInd int, dstDvIndList []int) (info GpuInterconn
 			return info, err
 		}
 		bdfToDvInd[uint64(bdfid)] = dv
+
 	}
 
 	// ---------- 1. 判断每个 dst GPU 的链路类型 ----------
@@ -3943,6 +4083,142 @@ func DevBusyPercent(dvInd int) (utilizationRate float64, err error) {
 	utilization, _ := rsmiDevBusyPercentGet(dvInd)
 	utilizationRate, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", float64(utilization)/1.0), 64)
 	return
+}
+
+// DevCuUsage 获取指定设备的 DCU 瞬时占用率。
+//
+// @Summary 获取 DCU 瞬时占用率
+// @Description 查询指定设备当前的 DCU 占用率（瞬时值）。只要某个 CU 内存在至少一个活跃 wave，即认为该 CU 活跃；占用率 = 活跃 CU 数量 / CU 总数量 × 100%。对应 hy-smi -u / rsmi_dev_cu_usage_get。
+// @Tags Utilization
+// @Produce json
+// @Param dvInd path int true "设备索引，从 0 开始，对应 hy-smi -d"
+// @Success 200 {number} float64 "DCU 瞬时占用率"
+// @Failure 400 {object} error "请求参数错误"
+// @Failure 500 {object} error "服务器内部错误"
+// @Router /DevCuUsage/{dvInd} [get]
+//
+// 参数说明：
+//   - deviceIndex：物理设备索引，与 NumMonitorDevices 枚举顺序一致
+//
+// 返回值说明：
+//   - utilizationRate：DCU 瞬时占用率，浮点数；GPU 空闲时通常为 0
+//   - err：调用失败时返回错误信息（如 RSMI_STATUS_NOT_SUPPORTED）
+func DevCuUsage(deviceIndex int) (utilizationRate float64, err error) {
+	utilization, err := rsmiDevCuUsageGet(deviceIndex)
+	if err != nil {
+		return 0, err
+	}
+	utilizationRate, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", float64(utilization)), 64)
+	return
+}
+
+// DevHcuUtil 获取指定设备在过去采样窗口内的 DCU 占用情况。
+//
+// @Summary 获取 DCU 采样占用情况
+// @Description 在 sampleDurationMs 时间窗口内周期性采样 DCU 活跃状态，返回活跃采样次数占比。对应 hy-smi --showhcuutil / rsmi_dev_hcu_util_get；hy-smi 默认采样窗口为 1s（1000ms），采样间隔约 10ms。
+// @Tags Utilization
+// @Produce json
+// @Param dvInd path int true "设备索引，从 0 开始"
+// @Param sampleDurationMs query int false "采样时间窗口（毫秒），默认 1000"
+// @Success 200 {number} float64 "DCU 采样占用率"
+// @Failure 400 {object} error "请求参数错误"
+// @Failure 500 {object} error "服务器内部错误"
+// @Router /DevHcuUtil/{dvInd} [get]
+//
+// 参数说明：
+//   - deviceIndex：物理设备索引
+//   - sampleDurationMs：采样时间窗口（毫秒）；hy-smi 命令行等效为 1s，建议传 1000
+//
+// 返回值说明：
+//   - utilizationRate：DCU 活跃采样占比，即 DCU 为活跃状态的次数 / 采样总次数
+//   - err：调用失败时返回错误信息
+func DevHcuUtil(deviceIndex int, sampleDurationMs int) (utilizationRate float64, err error) {
+	utilization, err := rsmiDevHcuUtilGet(deviceIndex, sampleDurationMs)
+	if err != nil {
+		return 0, err
+	}
+	utilizationRate, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", float64(utilization)), 64)
+	return
+}
+
+// DevCuUtil 获取指定设备 CU 在过去采样窗口内的占用情况。
+//
+// @Summary 获取 CU 采样占用情况
+// @Description 在 sampleDurationMs 窗口内统计各 CU 活跃采样占比并取全 CU 平均值。只要 CU 内存在至少一个活跃 wave 即视为活跃。对应 hy-smi --showcuutil / rsmi_dev_cu_util_get。
+// @Tags Utilization
+// @Produce json
+// @Param dvInd path int true "设备索引，从 0 开始"
+// @Param sampleDurationMs query int false "采样时间窗口（毫秒），默认 1000"
+// @Success 200 {number} float64 "CU 平均采样占用率"
+// @Failure 400 {object} error "请求参数错误"
+// @Failure 500 {object} error "服务器内部错误"
+// @Router /DevCuUtil/{dvInd} [get]
+//
+// 参数说明：
+//   - deviceIndex：物理设备索引
+//   - sampleDurationMs：采样时间窗口（毫秒），建议 1000（与 hy-smi 默认 1s 一致）
+//
+// 返回值说明：
+//   - utilizationRate：所有 CU 活跃采样占比的平均值
+//   - err：调用失败时返回错误信息
+func DevCuUtil(deviceIndex int, sampleDurationMs int) (utilizationRate float64, err error) {
+	utilization, err := rsmiDevCuUtilGet(deviceIndex, sampleDurationMs)
+	if err != nil {
+		return 0, err
+	}
+	utilizationRate, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", float64(utilization)), 64)
+	return
+}
+
+// DevWaveUtil 获取指定设备 Wave 在过去采样窗口内的占用情况。
+//
+// @Summary 获取 Wave 采样占用情况
+// @Description 在 sampleDurationMs 窗口内统计各 CU 上活跃 wave 占 wave 总数的比例，并对所有 CU 取平均。对应 hy-smi --showwaveutil / rsmi_dev_wave_util_get。
+// @Tags Utilization
+// @Produce json
+// @Param dvInd path int true "设备索引，从 0 开始"
+// @Param sampleDurationMs query int false "采样时间窗口（毫秒），默认 1000"
+// @Success 200 {number} float64 "Wave 平均采样占用率"
+// @Failure 400 {object} error "请求参数错误"
+// @Failure 500 {object} error "服务器内部错误"
+// @Router /DevWaveUtil/{dvInd} [get]
+//
+// 参数说明：
+//   - deviceIndex：物理设备索引
+//   - sampleDurationMs：采样时间窗口（毫秒），建议 1000
+//
+// 返回值说明：
+//   - utilizationRate：活跃 wave 采样占比在所有 CU 上的平均值
+//   - err：调用失败时返回错误信息
+func DevWaveUtil(deviceIndex int, sampleDurationMs int) (utilizationRate float64, err error) {
+	utilization, err := rsmiDevWaveUtilGet(deviceIndex, sampleDurationMs)
+	if err != nil {
+		return 0, err
+	}
+	utilizationRate, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", float64(utilization)), 64)
+	return
+}
+
+// DevSeUtil 获取指定设备各 Shader Engine（SE）的瞬时占用率。
+//
+// @Summary 获取 SE 瞬时占用率
+// @Description 按 SE 维度返回活跃 CU 占比（瞬时值）。只要 CU 内存在至少一个活跃 wave 即视为活跃；每个 SE 占用率 = SE 内活跃 CU 数 / 该 SE 内 CU 总数 × 100%。对应 hy-smi --showseuse / rsmi_dev_se_util_get。
+// @Tags Utilization
+// @Produce json
+// @Param dvInd path int true "设备索引，从 0 开始"
+// @Success 200 {object} SEUsageInfo "各 SE 占用率"
+// @Failure 400 {object} error "请求参数错误"
+// @Failure 500 {object} error "服务器内部错误"
+// @Router /DevSeUtil/{dvInd} [get]
+//
+// 参数说明：
+//   - deviceIndex：物理设备索引
+//
+// 返回值说明：
+//   - shaderEngineUsage：SE 占用信息，Percent[i] 为第 i 个 SE 的占用率；数组长度 MAX_SE_CNT（8）
+//   - err：调用失败时返回错误信息
+func DevSeUtil(deviceIndex int) (shaderEngineUsage SEUsageInfo, err error) {
+	return rsmiDevSeUtilGet(deviceIndex)
 }
 
 // VDevBusyPercent 返回虚拟设备使用百分比

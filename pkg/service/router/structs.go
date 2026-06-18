@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright (c) 2026 Hygon Information Technology Co., Ltd.
  */
@@ -1351,6 +1351,36 @@ type DCUUseResp struct {
 	GPUUsage int `json:"gpuUsage"`
 }
 
+// MaxSECount 每个设备最大 SE 数量
+const MaxSECount = 8
+
+// SEUsageInfo 各 Shader Engine（SE）瞬时占用率
+type SEUsageInfo struct {
+	// Percent 各 SE 占用率，下标对应 SE 索引
+	Percent [MaxSECount]float32 `json:"percent"`
+}
+
+// DevCuUsageResp DCU 瞬时占用率响应（对应 hy-smi -u）
+type DevCuUsageResp struct {
+	// UtilizationRate DCU 瞬时占用率
+	UtilizationRate float64 `json:"utilizationRate"`
+}
+
+// DevUtilSampleResp 采样类占用率响应（HCU/CU/Wave）
+type DevUtilSampleResp struct {
+	// UtilizationRate 采样窗口内的占用率
+	UtilizationRate float64 `json:"utilizationRate"`
+
+	// SampleDurationMs 采样时间窗口（毫秒）
+	SampleDurationMs int `json:"sampleDurationMs"`
+}
+
+// DevSeUtilResp SE 瞬时占用率响应（对应 hy-smi --showseuse）
+type DevSeUtilResp struct {
+	// ShaderEngineUsage 各 SE 占用率
+	ShaderEngineUsage SEUsageInfo `json:"shaderEngineUsage"`
+}
+
 // DevTypeIDResp 设备ID十六进制值响应
 type DevTypeIDResp struct {
 	// ID 设备ID的十六进制值
@@ -2005,4 +2035,41 @@ type Job struct {
 	// EndedAt 作业结束（成功/失败/取消）的时间戳（零值表示尚未结束）
 	// example: 2025-12-29T10:30:00Z
 	EndedAt time.Time `json:"endedAt"`
+}
+
+// DcuLinkInfo 描述两张 DCU 之间的互联关系
+type DcuLinkInfo struct {
+	// SrcDvInd 源 DCU 索引
+	// example: 0
+	SrcDvInd int `json:"srcDvInd"`
+
+	// DstDvInd 目标 DCU 索引
+	// example: 1
+	DstDvInd int `json:"dstDvInd"`
+
+	// PciID 目标 DCU 的 PCI ID
+	// example: 0000:07:00.0
+	PciID string `json:"PciID"`
+
+	// LinkType 链路类型: PCIE / XGMI / HYSWITCH / NONE
+	// example: XGMI
+	LinkType string `json:"linkType"`
+
+	// Weight 链路权重
+	// example: 2
+	Weight int `json:"weight"`
+
+	// Hops 跳数（目前可置 0 或 1）
+	// example: 1
+	Hops int `json:"hops"`
+}
+
+// DcuInterconnectMatrix 描述整机 DCU 互联矩阵
+type DcuInterconnectMatrix struct {
+	// DeviceCount DCU 总数
+	// example: 8
+	DeviceCount int `json:"deviceCount"`
+
+	// Matrix 互联矩阵: [src][dst] 对应 DcuLinkInfo
+	Matrix [][]DcuLinkInfo `json:"matrix"`
 }
