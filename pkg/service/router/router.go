@@ -32,11 +32,11 @@ func InitRouter() *gin.Engine {
 	// 路由
 	router.GET("/PicbusInfo/:dvInd", PicBusInfo)
 	router.GET("/DFBandwidth/:dvInd", DFBandwidth)
-	router.GET("/DevCuUsage/:dvInd", DevCuUsage)
-	router.GET("/DevHcuUtil/:dvInd", DevHcuUtil)
-	router.GET("/DevCuUtil/:dvInd", DevCuUtil)
-	router.GET("/DevWaveUtil/:dvInd", DevWaveUtil)
-	router.GET("/DevSeUtil/:dvInd", DevSeUtil)
+	router.GET("/DCUCuUsage/:dvInd", DCUCuUsage)
+	router.GET("/DCUSampledUsage/:dvInd", DCUSampledUsage)
+	router.GET("/DCUCUSampledUsage/:dvInd", DCUCUSampledUsage)
+	router.GET("/DCUWaveSampledUsage/:dvInd", DCUWaveSampledUsage)
+	router.GET("/DCUSEUsage/:dvInd", DCUSEUsage)
 	// 路由(K100 AI不支持)
 	router.GET("/FanSpeedInfo/:dvInd", FanSpeedInfo)
 	// 路由

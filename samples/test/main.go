@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright (c) 2026 Hygon Information Technology Co., Ltd.
  */
@@ -14,6 +14,8 @@ import (
 
 	"github.com/HYGON-AI/dcu-dcgm/pkg/dcgm"
 )
+
+const defaultSampleDurationMs = 1000
 
 func main() {
 	flag.Parse()
@@ -385,41 +387,139 @@ func main() {
 	//infos, err := dcgm.ShowNumaTopology(dvIdList)
 	//glog.V(5).Infof("ShowNumaTopology: %v", dataToJson(infos))
 
-	fmt.Println("==== DCU Interconnect Topology Demo ====")
+	demoDeviceUtilization(numDevices)
 
-	matrix, err := dcgm.DiscoverInterconnectTopology()
-	if err != nil {
-		fmt.Printf("DiscoverInterconnectTopology failed: %v\n", err)
-		return
-	}
-	glog.V(5).Infof("DiscoverInterconnectTopology: %v", dataToJson(matrix))
+	// fmt.Println("==== DCU Interconnect Topology Demo ====")
+	//
+	// matrix, err := dcgm.DiscoverInterconnectTopology()
+	// if err != nil {
+	// 	fmt.Printf("DiscoverInterconnectTopology failed: %v\n", err)
+	// 	return
+	// }
+	// glog.V(5).Infof("DiscoverInterconnectTopology: %v", dataToJson(matrix))
+	//
+	// dcuCount := matrix.DeviceCount
+	// fmt.Printf("Total DCU count: %d\n\n", dcuCount)
+	//
+	// for src := 0; src < dcuCount; src++ {
+	// 	fmt.Printf("From DCU %d:\n", src)
+	// 	for dst := 0; dst < dcuCount; dst++ {
+	// 		info := matrix.Matrix[src][dst]
+	//
+	// 		fmt.Printf(
+	// 			"  -> DCU %-2d | LinkType: %-12s | Weight: %d\n",
+	// 			info.DstDvInd,
+	// 			info.LinkType,
+	// 			info.Weight,
+	// 		)
+	// 	}
+	// 	fmt.Println()
+	// }
+	//
+	// fmt.Println("==== Demo Finished ====")
+	//
+	// if dcuCount > 3 {
+	// 	src, dst := 0, 3
+	// 	linkInfo := matrix.Matrix[src][dst]
+	// 	fmt.Printf("DCU %d -> DCU %d : LinkType=%s, Weight=%d, Hops=%d, PciID=%s\n",
+	// 		src, dst, linkInfo.LinkType, linkInfo.Weight, linkInfo.Hops, linkInfo.PciID)
+	// }
+}
 
-	dcuCount := matrix.DeviceCount
-	fmt.Printf("Total DCU count: %d\n\n", dcuCount)
+// demoDeviceUtilization 演示五个设备利用率相关 API 的调用与输出。
+func demoDeviceUtilization(numDevices int) {
+	fmt.Println()
+	fmt.Println("============================================================")
+	fmt.Println("  Device Utilization APIs Demo")
+	fmt.Println("  (DCUCuUsage / DCUSampledUsage / DCUCUSampledUsage / DCUWaveSampledUsage / DCUSEUsage)")
+	fmt.Println("============================================================")
+	fmt.Printf("Detected %d DCU(s), sample window = %d ms\n\n", numDevices, defaultSampleDurationMs)
 
-	for src := 0; src < dcuCount; src++ {
-		fmt.Printf("From DCU %d:\n", src)
-		for dst := 0; dst < dcuCount; dst++ {
-			info := matrix.Matrix[src][dst]
+	for dvInd := 0; dvInd < numDevices; dvInd++ {
+		fmt.Printf("-------------------- DCU [%d] --------------------\n", dvInd)
 
-			fmt.Printf(
-				"  -> DCU %-2d | LinkType: %-12s | Weight: %d\n",
-				info.DstDvInd,
-				info.LinkType,
-				info.Weight,
-			)
+		// 1. DCUCuUsage — 瞬时 DCU 占用率
+		fmt.Println("[1/5] DCUCuUsage")
+		fmt.Println("      API   : dcgm.DCUCuUsage(dvInd)")
+		fmt.Println("      RSMI  : rsmi_dev_cu_usage_get")
+		fmt.Println("      hy-smi: -u (瞬时 DCU 占用率，活跃 CU 数 / CU 总数)")
+		rate, err := dcgm.DCUCuUsage(dvInd)
+		if err != nil {
+			fmt.Printf("      ERROR : %v\n", err)
+			glog.Errorf("DCU %d DCUCuUsage failed: %v", dvInd, err)
+		} else {
+			fmt.Printf("      RESULT: %.2f%%\n", rate)
+			glog.V(5).Infof("DCU %d DCUCuUsage = %.2f%%", dvInd, rate)
+		}
+		fmt.Println()
+
+		// 2. DCUSampledUsage — 采样窗口内 DCU 活跃占比
+		fmt.Println("[2/5] DCUSampledUsage")
+		fmt.Printf("      API   : dcgm.DCUSampledUsage(dvInd, %d)\n", defaultSampleDurationMs)
+		fmt.Println("      RSMI  : rsmi_dev_hcu_util_get")
+		fmt.Println("      hy-smi: --showhcuutil (采样窗口内 DCU 活跃次数占比)")
+		rate, err = dcgm.DCUSampledUsage(dvInd, defaultSampleDurationMs)
+		if err != nil {
+			fmt.Printf("      ERROR : %v\n", err)
+			glog.Errorf("DCU %d DCUSampledUsage failed: %v", dvInd, err)
+		} else {
+			fmt.Printf("      RESULT: %.2f%% (over %d ms)\n", rate, defaultSampleDurationMs)
+			glog.V(5).Infof("DCU %d DCUSampledUsage = %.2f%%", dvInd, rate)
+		}
+		fmt.Println()
+
+		// 3. DCUCUSampledUsage — 采样窗口内 CU 活跃占比（全 CU 平均）
+		fmt.Println("[3/5] DCUCUSampledUsage")
+		fmt.Printf("      API   : dcgm.DCUCUSampledUsage(dvInd, %d)\n", defaultSampleDurationMs)
+		fmt.Println("      RSMI  : rsmi_dev_cu_util_get")
+		fmt.Println("      hy-smi: --showcuutil (各 CU 至少 1 个 wave 的周期占比，取平均)")
+		rate, err = dcgm.DCUCUSampledUsage(dvInd, defaultSampleDurationMs)
+		if err != nil {
+			fmt.Printf("      ERROR : %v\n", err)
+			glog.Errorf("DCU %d DCUCUSampledUsage failed: %v", dvInd, err)
+		} else {
+			fmt.Printf("      RESULT: %.2f%% (over %d ms)\n", rate, defaultSampleDurationMs)
+			glog.V(5).Infof("DCU %d DCUCUSampledUsage = %.2f%%", dvInd, rate)
+		}
+		fmt.Println()
+
+		// 4. DCUWaveSampledUsage — 采样窗口内 wave 驻留占比（全 CU 平均）
+		fmt.Println("[4/5] DCUWaveSampledUsage")
+		fmt.Printf("      API   : dcgm.DCUWaveSampledUsage(dvInd, %d)\n", defaultSampleDurationMs)
+		fmt.Println("      RSMI  : rsmi_dev_wave_util_get")
+		fmt.Println("      hy-smi: --showwaveutil (各 CU 上 wave 驻留数量占比，取平均)")
+		rate, err = dcgm.DCUWaveSampledUsage(dvInd, defaultSampleDurationMs)
+		if err != nil {
+			fmt.Printf("      ERROR : %v\n", err)
+			glog.Errorf("DCU %d DCUWaveSampledUsage failed: %v", dvInd, err)
+		} else {
+			fmt.Printf("      RESULT: %.2f%% (over %d ms)\n", rate, defaultSampleDurationMs)
+			glog.V(5).Infof("DCU %d DCUWaveSampledUsage = %.2f%%", dvInd, rate)
+		}
+		fmt.Println()
+
+		// 5. DCUSEUsage — 各 SE 瞬时 CU 占用率
+		fmt.Println("[5/5] DCUSEUsage")
+		fmt.Println("      API   : dcgm.DCUSEUsage(dvInd)")
+		fmt.Println("      RSMI  : rsmi_dev_se_util_get")
+		fmt.Println("      hy-smi: --showseuse (各 Shader Engine 活跃 CU 占比，瞬时值)")
+		seUsage, err := dcgm.DCUSEUsage(dvInd)
+		if err != nil {
+			fmt.Printf("      ERROR : %v\n", err)
+			glog.Errorf("DCU %d DCUSEUsage failed: %v", dvInd, err)
+		} else {
+			fmt.Println("      RESULT: SE utilization (percent per Shader Engine):")
+			for i := 0; i < dcgm.MAX_SE_CNT; i++ {
+				fmt.Printf("        SE[%d] = %.2f%%\n", i, seUsage.Percent[i])
+			}
+			glog.V(5).Infof("DCU %d DCUSEUsage = %s", dvInd, dataToJson(seUsage))
 		}
 		fmt.Println()
 	}
 
-	fmt.Println("==== Demo Finished ====")
-
-	if dcuCount > 3 {
-		src, dst := 0, 3
-		linkInfo := matrix.Matrix[src][dst]
-		fmt.Printf("DCU %d -> DCU %d : LinkType=%s, Weight=%d, Hops=%d, PciID=%s\n",
-			src, dst, linkInfo.LinkType, linkInfo.Weight, linkInfo.Hops, linkInfo.PciID)
-	}
+	fmt.Println("============================================================")
+	fmt.Println("  Demo Finished")
+	fmt.Println("============================================================")
 }
 
 func dataToJson(data any) string {

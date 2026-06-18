@@ -1109,6 +1109,9 @@ func rsmiDevGpuReset(dvInd int) (err error) {
 //   - err：非 nil 表示调用失败，常见为 RSMI_STATUS_INVALID_ARGS（参数无效）或
 //     RSMI_STATUS_INIT_ERROR（UsageManager 初始化失败）
 func rsmiDevCuUsageGet(dvInd int) (percent float32, err error) {
+	if err = ensureDevCuUsage(); err != nil {
+		return percent, err
+	}
 	var cpercent C.float
 	ret := C.rsmi_dev_cu_usage_get(C.uint32_t(dvInd), &cpercent)
 	glog.V(5).Infof("rsmi_dev_cu_usage_get ret:%v, retStr:%v", ret, errorString(ret))
@@ -1136,6 +1139,9 @@ func rsmiDevCuUsageGet(dvInd int) (percent float32, err error) {
 //   - err：非 nil 表示调用失败，常见为 RSMI_STATUS_INVALID_ARGS（参数无效）或
 //     RSMI_STATUS_NOT_SUPPORTED（当前硬件/驱动不支持）
 func rsmiDevHcuUtilGet(dvInd int, duration int) (percent float32, err error) {
+	if err = ensureDevHcuUtil(); err != nil {
+		return percent, err
+	}
 	var cpercent C.float
 	ret := C.rsmi_dev_hcu_util_get(C.uint32_t(dvInd), C.uint32_t(duration), &cpercent)
 	glog.V(5).Infof("rsmi_dev_hcu_util_get ret:%v, retStr:%v", ret, errorString(ret))
@@ -1162,6 +1168,9 @@ func rsmiDevHcuUtilGet(dvInd int, duration int) (percent float32, err error) {
 //   - percent：CU wave 占用周期占比（全 CU 平均），范围通常为 0~1
 //   - err：调用失败时返回错误信息
 func rsmiDevCuUtilGet(dvInd int, duration int) (percent float32, err error) {
+	if err = ensureDevCuUtil(); err != nil {
+		return percent, err
+	}
 	var cpercent C.float
 	ret := C.rsmi_dev_cu_util_get(C.uint32_t(dvInd), C.uint32_t(duration), &cpercent)
 	glog.V(5).Infof("rsmi_dev_cu_util_get ret:%v, retStr:%v", ret, errorString(ret))
@@ -1188,6 +1197,9 @@ func rsmiDevCuUtilGet(dvInd int, duration int) (percent float32, err error) {
 //   - percent：wave 驻留数量占比（全 CU 平均），范围通常为 0~1
 //   - err：调用失败时返回错误信息
 func rsmiDevWaveUtilGet(dvInd int, duration int) (percent float32, err error) {
+	if err = ensureDevWaveUtil(); err != nil {
+		return percent, err
+	}
 	var cpercent C.float
 	ret := C.rsmi_dev_wave_util_get(C.uint32_t(dvInd), C.uint32_t(duration), &cpercent)
 	glog.V(5).Infof("rsmi_dev_wave_util_get ret:%v, retStr:%v", ret, errorString(ret))
@@ -1214,6 +1226,9 @@ func rsmiDevWaveUtilGet(dvInd int, duration int) (percent float32, err error) {
 //     数组长度 MAX_SE_CNT（8），超出设备实际 SE 数的槽位一般为 0
 //   - err：调用失败时返回错误信息
 func rsmiDevSeUtilGet(dvInd int) (seUsage SEUsageInfo, err error) {
+	if err = ensureDevSeUtil(); err != nil {
+		return seUsage, err
+	}
 	var cinfo C.rsmi_se_usage_info_t
 	ret := C.rsmi_dev_se_util_get(C.uint32_t(dvInd), &cinfo)
 	glog.V(5).Infof("rsmi_dev_se_util_get ret:%v, retStr:%v", ret, errorString(ret))

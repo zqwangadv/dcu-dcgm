@@ -771,24 +771,24 @@ func DFBandwidth(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param dvInd path int true "物理设备索引"
-// @Success 200 {object} DevCuUsageResp "DCU 瞬时占用率"
+// @Success 200 {object} DCUCuUsageResp "DCU 瞬时占用率"
 // @Failure 400 {object} FailedMessage "Invalid device ID"
 // @Failure 500 {object} FailedMessage "Internal Server Error"
-// @Router /DevCuUsage/{dvInd} [get]
-func DevCuUsage(c *gin.Context) {
+// @Router /DCUCuUsage/{dvInd} [get]
+func DCUCuUsage(c *gin.Context) {
 	dvInd, err := strconv.Atoi(c.Param("dvInd"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid device ID"))
 		return
 	}
 
-	utilizationRate, err := dcgm.DevCuUsage(dvInd)
+	utilizationRate, err := dcgm.DCUCuUsage(dvInd)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse(err.Error()))
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse(DevCuUsageResp{UtilizationRate: utilizationRate}))
+	c.JSON(http.StatusOK, SuccessResponse(DCUCuUsageResp{UtilizationRate: utilizationRate}))
 }
 
 // @Tags Utilization
@@ -801,8 +801,8 @@ func DevCuUsage(c *gin.Context) {
 // @Success 200 {object} DevUtilSampleResp "DCU 采样占用率"
 // @Failure 400 {object} FailedMessage "Invalid parameters"
 // @Failure 500 {object} FailedMessage "Internal Server Error"
-// @Router /DevHcuUtil/{dvInd} [get]
-func DevHcuUtil(c *gin.Context) {
+// @Router /DCUSampledUsage/{dvInd} [get]
+func DCUSampledUsage(c *gin.Context) {
 	dvInd, err := strconv.Atoi(c.Param("dvInd"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid device ID"))
@@ -815,7 +815,7 @@ func DevHcuUtil(c *gin.Context) {
 		return
 	}
 
-	utilizationRate, err := dcgm.DevHcuUtil(dvInd, sampleDurationMs)
+	utilizationRate, err := dcgm.DCUSampledUsage(dvInd, sampleDurationMs)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse(err.Error()))
 		return
@@ -837,8 +837,8 @@ func DevHcuUtil(c *gin.Context) {
 // @Success 200 {object} DevUtilSampleResp "CU 平均采样占用率"
 // @Failure 400 {object} FailedMessage "Invalid parameters"
 // @Failure 500 {object} FailedMessage "Internal Server Error"
-// @Router /DevCuUtil/{dvInd} [get]
-func DevCuUtil(c *gin.Context) {
+// @Router /DCUCUSampledUsage/{dvInd} [get]
+func DCUCUSampledUsage(c *gin.Context) {
 	dvInd, err := strconv.Atoi(c.Param("dvInd"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid device ID"))
@@ -851,7 +851,7 @@ func DevCuUtil(c *gin.Context) {
 		return
 	}
 
-	utilizationRate, err := dcgm.DevCuUtil(dvInd, sampleDurationMs)
+	utilizationRate, err := dcgm.DCUCUSampledUsage(dvInd, sampleDurationMs)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse(err.Error()))
 		return
@@ -873,8 +873,8 @@ func DevCuUtil(c *gin.Context) {
 // @Success 200 {object} DevUtilSampleResp "Wave 平均采样占用率"
 // @Failure 400 {object} FailedMessage "Invalid parameters"
 // @Failure 500 {object} FailedMessage "Internal Server Error"
-// @Router /DevWaveUtil/{dvInd} [get]
-func DevWaveUtil(c *gin.Context) {
+// @Router /DCUWaveSampledUsage/{dvInd} [get]
+func DCUWaveSampledUsage(c *gin.Context) {
 	dvInd, err := strconv.Atoi(c.Param("dvInd"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid device ID"))
@@ -887,7 +887,7 @@ func DevWaveUtil(c *gin.Context) {
 		return
 	}
 
-	utilizationRate, err := dcgm.DevWaveUtil(dvInd, sampleDurationMs)
+	utilizationRate, err := dcgm.DCUWaveSampledUsage(dvInd, sampleDurationMs)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse(err.Error()))
 		return
@@ -905,24 +905,24 @@ func DevWaveUtil(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param dvInd path int true "物理设备索引"
-// @Success 200 {object} DevSeUtilResp "各 SE 占用率"
+// @Success 200 {object} DCUSEUsageResp "各 SE 占用率"
 // @Failure 400 {object} FailedMessage "Invalid device ID"
 // @Failure 500 {object} FailedMessage "Internal Server Error"
-// @Router /DevSeUtil/{dvInd} [get]
-func DevSeUtil(c *gin.Context) {
+// @Router /DCUSEUsage/{dvInd} [get]
+func DCUSEUsage(c *gin.Context) {
 	dvInd, err := strconv.Atoi(c.Param("dvInd"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid device ID"))
 		return
 	}
 
-	usage, err := dcgm.DevSeUtil(dvInd)
+	usage, err := dcgm.DCUSEUsage(dvInd)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse(err.Error()))
 		return
 	}
 
-	resp := DevSeUtilResp{
+	resp := DCUSEUsageResp{
 		ShaderEngineUsage: SEUsageInfo{Percent: usage.Percent},
 	}
 	c.JSON(http.StatusOK, SuccessResponse(resp))
