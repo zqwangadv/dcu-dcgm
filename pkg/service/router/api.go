@@ -1,4 +1,4 @@
-﻿/*
+/*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright (c) 2026 Hygon Information Technology Co., Ltd.
  */
@@ -763,6 +763,177 @@ func DFBandwidth(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, SuccessResponse(resp))
+}
+
+// @Tags Utilization
+// @Summary 获取 DCU 瞬时占用率
+// @Description 查询指定设备当前的 DCU 占用率（瞬时值）。只要某个 CU 内存在至少一个活跃 wave，即认为该 CU 活跃。对应 hy-smi -u / rsmi_dev_cu_usage_get。
+// @Accept json
+// @Produce json
+// @Param dvInd path int true "物理设备索引"
+// @Success 200 {object} DevCuUsageResp "DCU 瞬时占用率"
+// @Failure 400 {object} FailedMessage "Invalid device ID"
+// @Failure 500 {object} FailedMessage "Internal Server Error"
+// @Router /DevCuUsage/{dvInd} [get]
+func DevCuUsage(c *gin.Context) {
+	dvInd, err := strconv.Atoi(c.Param("dvInd"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid device ID"))
+		return
+	}
+
+	utilizationRate, err := dcgm.DevCuUsage(dvInd)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse(DevCuUsageResp{UtilizationRate: utilizationRate}))
+}
+
+// @Tags Utilization
+// @Summary 获取 DCU 采样占用情况
+// @Description 在采样窗口内周期性统计 DCU 活跃状态占比。对应 hy-smi --showhcuutil / rsmi_dev_hcu_util_get；默认采样窗口 1000ms（1s）。
+// @Accept json
+// @Produce json
+// @Param dvInd path int true "物理设备索引"
+// @Param sampleDurationMs query int false "采样时间窗口（毫秒），默认 1000"
+// @Success 200 {object} DevUtilSampleResp "DCU 采样占用率"
+// @Failure 400 {object} FailedMessage "Invalid parameters"
+// @Failure 500 {object} FailedMessage "Internal Server Error"
+// @Router /DevHcuUtil/{dvInd} [get]
+func DevHcuUtil(c *gin.Context) {
+	dvInd, err := strconv.Atoi(c.Param("dvInd"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid device ID"))
+		return
+	}
+
+	sampleDurationMs, err := parseSampleDurationMs(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid sampleDurationMs"))
+		return
+	}
+
+	utilizationRate, err := dcgm.DevHcuUtil(dvInd, sampleDurationMs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse(DevUtilSampleResp{
+		UtilizationRate:  utilizationRate,
+		SampleDurationMs: sampleDurationMs,
+	}))
+}
+
+// @Tags Utilization
+// @Summary 获取 CU 采样占用情况
+// @Description 在采样窗口内统计各 CU 活跃占比并取平均值。对应 hy-smi --showcuutil / rsmi_dev_cu_util_get；默认采样窗口 1000ms。
+// @Accept json
+// @Produce json
+// @Param dvInd path int true "物理设备索引"
+// @Param sampleDurationMs query int false "采样时间窗口（毫秒），默认 1000"
+// @Success 200 {object} DevUtilSampleResp "CU 平均采样占用率"
+// @Failure 400 {object} FailedMessage "Invalid parameters"
+// @Failure 500 {object} FailedMessage "Internal Server Error"
+// @Router /DevCuUtil/{dvInd} [get]
+func DevCuUtil(c *gin.Context) {
+	dvInd, err := strconv.Atoi(c.Param("dvInd"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid device ID"))
+		return
+	}
+
+	sampleDurationMs, err := parseSampleDurationMs(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid sampleDurationMs"))
+		return
+	}
+
+	utilizationRate, err := dcgm.DevCuUtil(dvInd, sampleDurationMs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse(DevUtilSampleResp{
+		UtilizationRate:  utilizationRate,
+		SampleDurationMs: sampleDurationMs,
+	}))
+}
+
+// @Tags Utilization
+// @Summary 获取 Wave 采样占用情况
+// @Description 在采样窗口内统计各 CU 上活跃 wave 占比并取平均值。对应 hy-smi --showwaveutil / rsmi_dev_wave_util_get；默认采样窗口 1000ms。
+// @Accept json
+// @Produce json
+// @Param dvInd path int true "物理设备索引"
+// @Param sampleDurationMs query int false "采样时间窗口（毫秒），默认 1000"
+// @Success 200 {object} DevUtilSampleResp "Wave 平均采样占用率"
+// @Failure 400 {object} FailedMessage "Invalid parameters"
+// @Failure 500 {object} FailedMessage "Internal Server Error"
+// @Router /DevWaveUtil/{dvInd} [get]
+func DevWaveUtil(c *gin.Context) {
+	dvInd, err := strconv.Atoi(c.Param("dvInd"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid device ID"))
+		return
+	}
+
+	sampleDurationMs, err := parseSampleDurationMs(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid sampleDurationMs"))
+		return
+	}
+
+	utilizationRate, err := dcgm.DevWaveUtil(dvInd, sampleDurationMs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse(err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse(DevUtilSampleResp{
+		UtilizationRate:  utilizationRate,
+		SampleDurationMs: sampleDurationMs,
+	}))
+}
+
+// @Tags Utilization
+// @Summary 获取 SE 瞬时占用率
+// @Description 按 SE 维度返回活跃 CU 占比（瞬时值）。对应 hy-smi --showseuse / rsmi_dev_se_util_get。
+// @Accept json
+// @Produce json
+// @Param dvInd path int true "物理设备索引"
+// @Success 200 {object} DevSeUtilResp "各 SE 占用率"
+// @Failure 400 {object} FailedMessage "Invalid device ID"
+// @Failure 500 {object} FailedMessage "Internal Server Error"
+// @Router /DevSeUtil/{dvInd} [get]
+func DevSeUtil(c *gin.Context) {
+	dvInd, err := strconv.Atoi(c.Param("dvInd"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid device ID"))
+		return
+	}
+
+	usage, err := dcgm.DevSeUtil(dvInd)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse(err.Error()))
+		return
+	}
+
+	resp := DevSeUtilResp{
+		ShaderEngineUsage: SEUsageInfo{Percent: usage.Percent},
+	}
+	c.JSON(http.StatusOK, SuccessResponse(resp))
+}
+
+// parseSampleDurationMs 解析采样窗口 query 参数，缺省为 1000ms（与 hy-smi 默认 1s 一致）。
+func parseSampleDurationMs(c *gin.Context) (int, error) {
+	if v := c.Query("sampleDurationMs"); v != "" {
+		return strconv.Atoi(v)
+	}
+	return 1000, nil
 }
 
 // @Tags Device
@@ -2820,6 +2991,45 @@ func ShowHwTopology(c *gin.Context) {
 
 	dcgm.ShowHwTopology(dvIdList)
 	c.String(http.StatusOK, "指定设备的完整硬件拓扑信息已显示")
+}
+
+// @Tags Topology
+// @Summary 显示整机 DCU 互联矩阵信息
+// @Description 枚举整机 DCU 的互联关系，包括链路类型（PCIe / XGMI / HYSWITCH / NONE）及对应权重。
+//
+//	返回 DCU × DCU 的互联矩阵，可用于拓扑分析。
+//
+// @Success 200 {object} DcuInterconnectMatrix "DCU 互联矩阵信息"
+// @Failure 500 {object} error "查询 DCU 互联信息失败"
+// @Router /discoverInterconnectTopology [get]
+func DiscoverInterconnectTopology(c *gin.Context) {
+	matrix, err := dcgm.DiscoverInterconnectTopology()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse(err.Error()))
+		return
+	}
+
+	deviceMatrix := DcuInterconnectMatrix{
+		DeviceCount: matrix.DeviceCount,
+		Matrix:      make([][]DcuLinkInfo, matrix.DeviceCount),
+	}
+
+	for i := 0; i < matrix.DeviceCount; i++ {
+		deviceMatrix.Matrix[i] = make([]DcuLinkInfo, matrix.DeviceCount)
+		for j := 0; j < matrix.DeviceCount; j++ {
+			link := matrix.Matrix[i][j]
+			deviceMatrix.Matrix[i][j] = DcuLinkInfo{
+				SrcDvInd: link.SrcDvInd,
+				DstDvInd: link.DstDvInd,
+				PciID:    link.PciID,
+				LinkType: link.LinkType,
+				Weight:   link.Weight,
+				Hops:     link.Hops,
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse(deviceMatrix))
 }
 
 // @Tags Device

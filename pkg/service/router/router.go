@@ -32,6 +32,11 @@ func InitRouter() *gin.Engine {
 	// 路由
 	router.GET("/PicbusInfo/:dvInd", PicBusInfo)
 	router.GET("/DFBandwidth/:dvInd", DFBandwidth)
+	router.GET("/DevCuUsage/:dvInd", DevCuUsage)
+	router.GET("/DevHcuUtil/:dvInd", DevHcuUtil)
+	router.GET("/DevCuUtil/:dvInd", DevCuUtil)
+	router.GET("/DevWaveUtil/:dvInd", DevWaveUtil)
+	router.GET("/DevSeUtil/:dvInd", DevSeUtil)
 	// 路由(K100 AI不支持)
 	router.GET("/FanSpeedInfo/:dvInd", FanSpeedInfo)
 	// 路由
@@ -138,6 +143,7 @@ func InitRouter() *gin.Engine {
 	router.POST("/showTypeTopology", ShowTypeTopology)
 	router.POST("/showNumaTopology", ShowNumaTopology)
 	router.POST("/showHwTopology", ShowHwTopology)
+	router.GET("/discoverInterconnectTopology", DiscoverInterconnectTopology)
 	router.GET("/deviceCount", DeviceCount)
 	router.GET("/VDeviceSingleInfo/:vDvInd", VDeviceSingleInfo)
 	router.GET("/vDeviceCount", VDeviceCount)

@@ -1069,3 +1069,18 @@ func loadUpdateIDsMap() error {
 
 	return nil
 }
+
+// formatBDFID converts a uint64 BDFID to standard PCI format (dddd:bb:dd.f).
+func formatBDFID(bdfid uint64) string {
+	domain := (bdfid >> 32) & 0xffffffff
+	bus := (bdfid >> 8) & 0xff
+	device := (bdfid >> 3) & 0x1f
+	function := bdfid & 0x7
+
+	return fmt.Sprintf("%04x:%02x:%02x.%x",
+		domain,
+		bus,
+		device,
+		function,
+	)
+}

@@ -378,12 +378,48 @@ func main() {
 	//	glog.V(5).Infof("[DEMO] Test finished for dvInd=%v", dvInd)
 	//	glog.V(5).Infof("info: %v", dataToJson(info))
 	//}
-	dvIdList := make([]int, numDevices)
-	for i := 0; i < numDevices; i++ {
-		dvIdList[i] = i
+	//dvIdList := make([]int, numDevices)
+	//for i := 0; i < numDevices; i++ {
+	//	dvIdList[i] = i
+	//}
+	//infos, err := dcgm.ShowNumaTopology(dvIdList)
+	//glog.V(5).Infof("ShowNumaTopology: %v", dataToJson(infos))
+
+	fmt.Println("==== DCU Interconnect Topology Demo ====")
+
+	matrix, err := dcgm.DiscoverInterconnectTopology()
+	if err != nil {
+		fmt.Printf("DiscoverInterconnectTopology failed: %v\n", err)
+		return
 	}
-	infos, err := dcgm.ShowNumaTopology(dvIdList)
-	glog.V(5).Infof("ShowNumaTopology: %v", dataToJson(infos))
+	glog.V(5).Infof("DiscoverInterconnectTopology: %v", dataToJson(matrix))
+
+	dcuCount := matrix.DeviceCount
+	fmt.Printf("Total DCU count: %d\n\n", dcuCount)
+
+	for src := 0; src < dcuCount; src++ {
+		fmt.Printf("From DCU %d:\n", src)
+		for dst := 0; dst < dcuCount; dst++ {
+			info := matrix.Matrix[src][dst]
+
+			fmt.Printf(
+				"  -> DCU %-2d | LinkType: %-12s | Weight: %d\n",
+				info.DstDvInd,
+				info.LinkType,
+				info.Weight,
+			)
+		}
+		fmt.Println()
+	}
+
+	fmt.Println("==== Demo Finished ====")
+
+	if dcuCount > 3 {
+		src, dst := 0, 3
+		linkInfo := matrix.Matrix[src][dst]
+		fmt.Printf("DCU %d -> DCU %d : LinkType=%s, Weight=%d, Hops=%d, PciID=%s\n",
+			src, dst, linkInfo.LinkType, linkInfo.Weight, linkInfo.Hops, linkInfo.PciID)
+	}
 }
 
 func dataToJson(data any) string {

@@ -1160,6 +1160,7 @@ const (
 	LinkTypeXGMIHyswitch = "HYSWITCH" // Hyswitch
 	LinkTypeHybrid       = "HYBRID"   // PCIe + XGMI 混合互联
 	LinkTypeUnknown      = "UNKNOWN"  // 无法识别
+	LinkTypeNONE         = "NONE"
 )
 
 // BlocksInfo block信息
@@ -1367,6 +1368,16 @@ type XhclBandwidthInfo struct {
 }
 
 const MAX_UMC_CHAN_NUM = 32
+
+// MAX_SE_CNT 每个设备最大 SE 数量
+const MAX_SE_CNT = 8
+
+// SEUsageInfo 各 Shader Engine（SE）瞬时占用率信息。
+// 对应 rsmi_dev_se_util_get / hy-smi --showseuse；Percent[i] 为第 i 个 SE 的占用率。
+type SEUsageInfo struct {
+	// Percent 各 SE 占用率，下标 i 对应 SE 索引，长度为 MAX_SE_CNT（8）
+	Percent [MAX_SE_CNT]float32 `json:"percent"`
+}
 
 // UMCBandwidthInfo UMC 带宽信息（按通道统计）
 type UMCBandwidthInfo struct {
@@ -1723,4 +1734,21 @@ type GpuInterconnectInfo struct {
 	LinkType  string           // 总体互联类型：PCIE / XGMI / XGMI_HYSWITCH / HYBRID
 	CardCount int              // 参与互联的 GPU 数量（包含自身）
 	Links     []DirectLinkInfo // 与当前 GPU 直连的 GPU 信息
+}
+
+// DcuLinkInfo 描述两张 DCU 之间的互联关系
+type DcuLinkInfo struct {
+	SrcDvInd int    // 源 DCU 索引
+	DstDvInd int    // 目标 DCU 索引
+	BdfID    uint64 // 目标 DCU 的 BDFID
+	PciID    string // 目标 DCU 的 PCI ID
+	LinkType string // PCIE / XGMI / HYSWITCH / NONE
+	Weight   int    // 链路权重
+	Hops     int    // 跳数（目前为 0）
+}
+
+// DcuInterconnectMatrix 描述整机 DCU 互联矩阵
+type DcuInterconnectMatrix struct {
+	DeviceCount int
+	Matrix      [][]DcuLinkInfo // [src][dst]
 }

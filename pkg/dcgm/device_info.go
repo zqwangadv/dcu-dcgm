@@ -1090,3 +1090,139 @@ func rsmiDevGpuReset(dvInd int) (err error) {
 //	linkType = RSMI_IO_LINK_TYPE(ctype)
 //	return
 //}
+
+/****************************************** Utilization *********************************************/
+
+// rsmiDevCuUsageGet 查询设备 CU 使用率。
+//
+// 接口含义：
+//   - 对应 C 接口 rsmi_dev_cu_usage_get，返回指定设备的 CU 使用占比。
+//   - 与 rsmiDevCuUtilGet 不同：本接口无需 duration，由驱动内部 UsageManager 统计；
+//     cu_util_get 则需在指定时间窗口内统计 wave 占用周期。
+//   - 调用前需已完成 rsmi_init 初始化。
+//
+// 参数说明：
+//   - dvInd：设备索引，与 rsmi_num_monitor_devices 枚举顺序一致，从 0 开始
+//
+// 返回值说明：
+//   - percent：CU 使用率，浮点数，范围通常为 0~1；设备空闲时通常为 0
+//   - err：非 nil 表示调用失败，常见为 RSMI_STATUS_INVALID_ARGS（参数无效）或
+//     RSMI_STATUS_INIT_ERROR（UsageManager 初始化失败）
+func rsmiDevCuUsageGet(dvInd int) (percent float32, err error) {
+	var cpercent C.float
+	ret := C.rsmi_dev_cu_usage_get(C.uint32_t(dvInd), &cpercent)
+	glog.V(5).Infof("rsmi_dev_cu_usage_get ret:%v, retStr:%v", ret, errorString(ret))
+	if err = errorString(ret); err != nil {
+		return percent, fmt.Errorf("Error rsmi_dev_cu_usage_get:%s", err)
+	}
+	percent = float32(cpercent)
+	glog.V(5).Infof("rsmiDevCuUsageGet dvInd:%v percent:%v", dvInd, percent)
+	return
+}
+
+// rsmiDevHcuUtilGet 查询设备 HCU（Hygon Compute Unit）在采样窗口内的活跃时间占比。
+//
+// 接口含义：
+//   - 对应 C 接口 rsmi_dev_hcu_util_get，反映 GPU 计算单元（HCU）在指定时间段内
+//     处于活跃状态的时间比例，可用于衡量设备整体计算繁忙程度。
+//   - 调用前需已完成 rsmi_init 初始化。
+//
+// 参数说明：
+//   - dvInd：设备索引，与 rsmi_num_monitor_devices 枚举顺序一致，从 0 开始
+//   - duration：采样时间窗口；头文件未注明具体单位，实测可传 1000 作为常用值
+//
+// 返回值说明：
+//   - percent：HCU 活跃时间占比，浮点数；设备空闲时通常为 0，负载越高越接近 1
+//   - err：非 nil 表示调用失败，常见为 RSMI_STATUS_INVALID_ARGS（参数无效）或
+//     RSMI_STATUS_NOT_SUPPORTED（当前硬件/驱动不支持）
+func rsmiDevHcuUtilGet(dvInd int, duration int) (percent float32, err error) {
+	var cpercent C.float
+	ret := C.rsmi_dev_hcu_util_get(C.uint32_t(dvInd), C.uint32_t(duration), &cpercent)
+	glog.V(5).Infof("rsmi_dev_hcu_util_get ret:%v, retStr:%v", ret, errorString(ret))
+	if err = errorString(ret); err != nil {
+		return percent, fmt.Errorf("Error rsmi_dev_hcu_util_get:%s", err)
+	}
+	percent = float32(cpercent)
+	glog.V(5).Infof("rsmiDevHcuUtilGet dvInd:%v duration:%v percent:%v", dvInd, duration, percent)
+	return
+}
+
+// rsmiDevCuUtilGet 查询设备 CU 在采样窗口内的 wave 占用周期占比（全 CU 平均）。
+//
+// 接口含义：
+//   - 对应 C 接口 rsmi_dev_cu_util_get，统计在 duration 时间窗口内，
+//     每个 CU 至少分配了 1 个 wave 的时钟周期占比，再对所有 CU 取平均值。
+//   - 反映计算单元被 kernel 实际占用的程度，比 HCU 粒度更细。
+//
+// 参数说明：
+//   - dvInd：设备索引，从 0 开始
+//   - duration：采样时间窗口，含义同 rsmiDevHcuUtilGet
+//
+// 返回值说明：
+//   - percent：CU wave 占用周期占比（全 CU 平均），范围通常为 0~1
+//   - err：调用失败时返回错误信息
+func rsmiDevCuUtilGet(dvInd int, duration int) (percent float32, err error) {
+	var cpercent C.float
+	ret := C.rsmi_dev_cu_util_get(C.uint32_t(dvInd), C.uint32_t(duration), &cpercent)
+	glog.V(5).Infof("rsmi_dev_cu_util_get ret:%v, retStr:%v", ret, errorString(ret))
+	if err = errorString(ret); err != nil {
+		return percent, fmt.Errorf("Error rsmi_dev_cu_util_get:%s", err)
+	}
+	percent = float32(cpercent)
+	glog.V(5).Infof("rsmiDevCuUtilGet dvInd:%v duration:%v percent:%v", dvInd, duration, percent)
+	return
+}
+
+// rsmiDevWaveUtilGet 查询设备 CU 在采样窗口内的 wave 驻留数量占比（全 CU 平均）。
+//
+// 接口含义：
+//   - 对应 C 接口 rsmi_dev_wave_util_get，统计 duration 窗口内各 CU 上
+//     驻留 wave 数量占最大可驻留 wave 数量的比例，再对所有 CU 取平均值。
+//   - 与 rsmiDevCuUtilGet 互补：cu_util 看“有没有 wave”，wave_util 看“wave 填了多少”。
+//
+// 参数说明：
+//   - dvInd：设备索引，从 0 开始
+//   - duration：采样时间窗口，含义同 rsmiDevHcuUtilGet
+//
+// 返回值说明：
+//   - percent：wave 驻留数量占比（全 CU 平均），范围通常为 0~1
+//   - err：调用失败时返回错误信息
+func rsmiDevWaveUtilGet(dvInd int, duration int) (percent float32, err error) {
+	var cpercent C.float
+	ret := C.rsmi_dev_wave_util_get(C.uint32_t(dvInd), C.uint32_t(duration), &cpercent)
+	glog.V(5).Infof("rsmi_dev_wave_util_get ret:%v, retStr:%v", ret, errorString(ret))
+	if err = errorString(ret); err != nil {
+		return percent, fmt.Errorf("Error rsmi_dev_wave_util_get:%s", err)
+	}
+	percent = float32(cpercent)
+	glog.V(5).Infof("rsmiDevWaveUtilGet dvInd:%v duration:%v percent:%v", dvInd, duration, percent)
+	return
+}
+
+// rsmiDevSeUtilGet 查询设备各 Shader Engine（SE）上活跃 CU 的利用率。
+//
+// 接口含义：
+//   - 对应 C 接口 rsmi_dev_se_util_get，按 SE 维度返回活跃 CU 占比，
+//     用于观察负载在不同 SE 之间的分布是否均衡。
+//   - 本接口不需要 duration 参数，为即时/短周期统计。
+//
+// 参数说明：
+//   - dvInd：设备索引，从 0 开始
+//
+// 返回值说明：
+//   - seUsage：SE 利用率结构体，Percent[i] 为第 i 个 SE 的活跃 CU 占比（0~1）；
+//     数组长度 MAX_SE_CNT（8），超出设备实际 SE 数的槽位一般为 0
+//   - err：调用失败时返回错误信息
+func rsmiDevSeUtilGet(dvInd int) (seUsage SEUsageInfo, err error) {
+	var cinfo C.rsmi_se_usage_info_t
+	ret := C.rsmi_dev_se_util_get(C.uint32_t(dvInd), &cinfo)
+	glog.V(5).Infof("rsmi_dev_se_util_get ret:%v, retStr:%v", ret, errorString(ret))
+	if err = errorString(ret); err != nil {
+		return seUsage, fmt.Errorf("Error rsmi_dev_se_util_get:%s", err)
+	}
+	for i := 0; i < MAX_SE_CNT; i++ {
+		seUsage.Percent[i] = float32(cinfo.percent[i])
+	}
+	glog.V(5).Infof("rsmiDevSeUtilGet dvInd:%v seUsage:%v", dvInd, seUsage)
+	return
+}
