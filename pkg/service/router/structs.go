@@ -20,7 +20,7 @@ import "C"
 import (
 	"time"
 
-	"github.com/HYGON-AI/dcu-dcgm/pkg/dcgm"
+	"github.com/HYGON-AI/dcu-dcgm/v2/pkg/dcgm"
 )
 
 // Response represents a basic structure for API responses.
@@ -1360,8 +1360,8 @@ type SEUsageInfo struct {
 	Percent [MaxSECount]float32 `json:"percent"`
 }
 
-// DevCuUsageResp DCU 瞬时占用率响应（对应 hy-smi -u）
-type DevCuUsageResp struct {
+// DCUCuUsageResp DCU 瞬时占用率响应（对应 hy-smi -u）
+type DCUCuUsageResp struct {
 	// UtilizationRate DCU 瞬时占用率
 	UtilizationRate float64 `json:"utilizationRate"`
 }
@@ -1375,8 +1375,8 @@ type DevUtilSampleResp struct {
 	SampleDurationMs int `json:"sampleDurationMs"`
 }
 
-// DevSeUtilResp SE 瞬时占用率响应（对应 hy-smi --showseuse）
-type DevSeUtilResp struct {
+// DCUSEUsageResp SE 瞬时占用率响应（对应 hy-smi --showseuse）
+type DCUSEUsageResp struct {
 	// ShaderEngineUsage 各 SE 占用率
 	ShaderEngineUsage SEUsageInfo `json:"shaderEngineUsage"`
 }
